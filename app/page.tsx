@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
   DialogContent,
@@ -59,24 +59,25 @@ export default function Home() {
     e.preventDefault();
     setIsSubmitting(true);
 
-    const orderData = {
-      ...formData,
-      product: product.name,
-      quantity,
-      totalPrice: product.price * quantity,
-      orderDate: new Date().toISOString(),
-    };
-
     try {
+      const form = new FormData();
+      form.append("name", formData.name);
+      form.append("email", formData.email);
+      form.append("phone", formData.phone);
+      form.append("address", formData.address);
+      form.append("product", product.name);
+      form.append("quantity", quantity.toString());
+      form.append("totalPrice", (product.price * quantity).toString());
+      form.append("orderDate", new Date().toISOString());
+
       const response = await fetch(GOOGLE_SCRIPT_URL, {
         method: "POST",
-        mode: "no-cors",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(orderData),
+        mode: "no-cors", // Add this back as Google Scripts requires it
+        body: form
       });
 
+      // Since mode is no-cors, we won't get a proper response status
+      // We'll assume success unless there's an error
       toast({
         title: "Order Submitted Successfully!",
         description: "We'll contact you soon with shipping details.",
@@ -90,6 +91,7 @@ export default function Home() {
       });
       setQuantity(1);
     } catch (error) {
+      console.error("Order submission error:", error);
       toast({
         title: "Error Submitting Order",
         description: "Please try again later.",
