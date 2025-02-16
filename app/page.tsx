@@ -1,5 +1,4 @@
 "use client";
-
 import { useState } from "react";
 import { ShoppingCart, Package, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -15,6 +14,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
+// Product Data
 const product = {
   name: "Limited Edition Mechanical Watch",
   price: 299,
@@ -31,10 +31,8 @@ const product = {
   ],
 };
 
-// Replace this with your Google Apps Script Web App URL
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzSwMaX2Ixy_idN-8YeM0XUnz93GoCvAQ2BBqo3V5EfO2-pX1ChJWcdwe7IE_LjNv2H/exec";
-
 export default function Home() {
+  // State Management
   const [currentImage, setCurrentImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -44,9 +42,11 @@ export default function Home() {
     address: "",
     phone: "",
   });
-  const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
+  const { toast } = useToast();
+
+  // Handle Input Changes
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
@@ -55,33 +55,60 @@ export default function Home() {
     }));
   };
 
+  // Handle Form Submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validate form data
+    if (!formData.name || !formData.email || !formData.phone || !formData.address) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill out all required fields.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
 
-    try {
-      const form = new FormData();
-      form.append("name", formData.name);
-      form.append("email", formData.email);
-      form.append("phone", formData.phone);
-      form.append("address", formData.address);
-      form.append("product", product.name);
-      form.append("quantity", quantity.toString());
-      form.append("totalPrice", (product.price * quantity).toString());
-      form.append("orderDate", new Date().toISOString());
+    const scriptUrl = process.env.NEXT_PUBLIC_GOOGLE_SHEET_URL;
+    if (!scriptUrl) {
+      toast({
+        title: "Configuration Error",
+        description: "Order system is not properly configured. Please contact support.",
+        variant: "destructive",
+      });
+      setIsSubmitting(false);
+      return;
+    }
 
-      const response = await fetch(GOOGLE_SCRIPT_URL, {
+    try {
+      const response = await fetch(scriptUrl, {
         method: "POST",
-        mode: "no-cors", // Add this back as Google Scripts requires it
-        body: form
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          address: formData.address,
+          product: product.name,
+          quantity: quantity.toString(),
+          totalPrice: (product.price * quantity).toString(),
+          orderDate: new Date().toISOString(),
+        }).toString(),
       });
 
-      // Since mode is no-cors, we won't get a proper response status
-      // We'll assume success unless there's an error
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+
       toast({
         title: "Order Submitted Successfully!",
         description: "We'll contact you soon with shipping details.",
       });
+
       setIsDialogOpen(false);
       setFormData({
         name: "",
@@ -90,11 +117,11 @@ export default function Home() {
         phone: "",
       });
       setQuantity(1);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Order submission error:", error);
       toast({
         title: "Error Submitting Order",
-        description: "Please try again later.",
+        description: error.message || "Please check your internet connection and try again.",
         variant: "destructive",
       });
     } finally {
@@ -233,7 +260,6 @@ export default function Home() {
             </DialogContent>
           </Dialog>
         </div>
-
         <p className="mt-8 text-lg text-gray-600">{product.description}</p>
 
         {/* Features */}
